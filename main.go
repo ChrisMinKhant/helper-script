@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 
 	"gopkg.in/yaml.v3"
@@ -20,19 +21,33 @@ func main() {
 	·············································································`
 
 	fmt.Println(asciiArt)
+
 	fmt.Print("Please enter system username ::: ")
 	fmt.Scan(&systemUserName)
 	fmt.Print("Please enter downloaded rancher yaml file path ::: ")
 	fmt.Scan(&path)
-	fetchFile(&path, &systemUserName)
+
+	// Take a backup of the existed config file
+	backupFile(&systemUserName)
+
+	fetchedFiles := fetchFiles(&path)
+
+	fileCount := 0
+
+	// Add cluster config to the existed config file
+	for _, singleFile := range *fetchedFiles {
+		singleFileAbsolutePath := path + "/" + singleFile.Name()
+		addCluster(&singleFileAbsolutePath, &systemUserName)
+		fileCount++
+	}
+
+	fmt.Printf("Added cluster count ::: %d \n", fileCount)
+	fmt.Println("I got go. You got shits to be done, HE HE HE.")
 }
 
-func fetchFile(path *string, systemUsername *string) {
-	defer recover()
-
+func addCluster(path *string, systemUsername *string) {
 	downloadedConfig := make(map[string]any)
 	existedConfig := make(map[string]any)
-	backupconfig := make(map[string]any)
 
 	openedDownloadedConfig, error := os.ReadFile(*path)
 	checkError(&error)
@@ -42,12 +57,6 @@ func fetchFile(path *string, systemUsername *string) {
 
 	yaml.Unmarshal(openedDownloadedConfig, downloadedConfig)
 	yaml.Unmarshal(openedExistedConfig, existedConfig)
-	yaml.Unmarshal(openedExistedConfig, backupconfig)
-
-	marshalledBackupYamlValue := marshalYaml(backupconfig)
-
-	error = os.WriteFile("/home/"+*systemUsername+"/.kube/backupconfig", *marshalledBackupYamlValue, 0644)
-	checkError(&error)
 
 	existedConfig["clusters"] = append(existedConfig["clusters"].([]any), downloadedConfig["clusters"].([]any)[0])
 	existedConfig["users"] = append(existedConfig["users"].([]any), downloadedConfig["users"].([]any)[0])
@@ -58,7 +67,27 @@ func fetchFile(path *string, systemUsername *string) {
 	error = os.WriteFile("/home/"+*systemUsername+"/.kube/config", *marshalledYamlValue, 0644)
 	checkError(&error)
 
-	fmt.Println("New cluster is added to config. Don't be happy, bye.")
+}
+
+func backupFile(systemUsername *string) {
+	backupconfig := make(map[string]any)
+
+	openedExistedConfig, error := os.ReadFile("/home/" + *systemUsername + "/.kube/config")
+	checkError(&error)
+
+	yaml.Unmarshal(openedExistedConfig, backupconfig)
+
+	marshalledBackupYamlValue := marshalYaml(backupconfig)
+
+	error = os.WriteFile("/home/"+*systemUsername+"/.kube/backupconfig", *marshalledBackupYamlValue, 0644)
+	checkError(&error)
+}
+
+func fetchFiles(path *string) *[]fs.DirEntry {
+	foundFiles, error := os.ReadDir(*path)
+	checkError(&error)
+
+	return &foundFiles
 }
 
 func checkError(foundError *error) {
