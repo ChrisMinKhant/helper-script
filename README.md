@@ -1,3 +1,10 @@
+        ·············································································
+        :  ____ _____  ____  ____    _       ____ _____ _____ ____ _   _    _ ____  :
+        : / _  |____ |/ _  |/ _  |  / \     / _  |____ |_   _|___ | | | |  | |___ \ :
+        :| (_| | |_  | | | | | | | / _ \   | (_| | |_  | | | / ___| | | |  | |   | |:
+        : > _  |___| | |_| | |_| |/ ___ \   > _  |___| | | || (___| |_| ___| |___| |:
+        :/_/ |_|_____|\____|\____/_/   \_\ /_/ |_|_____| |_| \____|\___|_____|____/ :
+        ·············································································
 Helper script for adding new cluster config to the .kube/config that already existed in that directory.
 The script is written in go lang.
 Currently, the config file of .kube/config has to have at least one cluster to use this script.
