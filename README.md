@@ -1,4 +1,4 @@
-	Helper script for adding new cluster config to the .kube/config that already existed in that directory.
+Helper script for adding new cluster config to the .kube/config that already existed in that directory.
 The script is written in go lang.
 Currently, the config file of .kube/config has to have at least one cluster to use this script.
 By running this script, you will be asked to do two things.
