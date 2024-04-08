@@ -58,14 +58,11 @@ func addCluster(path *string, systemUsername *string) {
 
 	foundFactor := 0
 
-	for _, cluster := range existedConfig["users"].([]any) {
-		if checkClusterExistance(&cluster, &downloadedConfig["users"].([]any)[0]) {
+	for _, cluster := range existedConfig["clusters"].([]any) {
+		if checkClusterExistance(&cluster, &downloadedConfig["clusters"].([]any)[0]) {
 			foundFactor++
 		}
 	}
-
-	fmt.Printf("Fetched foundFactor ::: %v \n", foundFactor)
-	fmt.Printf("Fetched length of config ::: %v \n", len(existedConfig["users"].([]any)))
 
 	if foundFactor == 0 {
 		existedConfig["clusters"] = append(existedConfig["clusters"].([]any), downloadedConfig["clusters"].([]any)[0])
