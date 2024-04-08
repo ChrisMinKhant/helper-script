@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -32,16 +34,12 @@ func main() {
 
 	fetchedFiles := fetchFiles(&path)
 
-	fileCount := 0
-
 	// Add cluster config to the existed config file
 	for _, singleFile := range *fetchedFiles {
 		singleFileAbsolutePath := path + "/" + singleFile.Name()
 		addCluster(&singleFileAbsolutePath, &systemUserName)
-		fileCount++
 	}
 
-	fmt.Printf("Added cluster count ::: %d \n", fileCount)
 	fmt.Println("I got go. You got shits to be done, HE HE HE.")
 }
 
@@ -58,15 +56,37 @@ func addCluster(path *string, systemUsername *string) {
 	yaml.Unmarshal(openedDownloadedConfig, downloadedConfig)
 	yaml.Unmarshal(openedExistedConfig, existedConfig)
 
-	existedConfig["clusters"] = append(existedConfig["clusters"].([]any), downloadedConfig["clusters"].([]any)[0])
-	existedConfig["users"] = append(existedConfig["users"].([]any), downloadedConfig["users"].([]any)[0])
-	existedConfig["contexts"] = append(existedConfig["contexts"].([]any), downloadedConfig["contexts"].([]any)[0])
+	foundFactor := 0
 
-	marshalledYamlValue := marshalYaml(existedConfig)
+	for _, cluster := range existedConfig["users"].([]any) {
+		if checkClusterExistance(&cluster, &downloadedConfig["users"].([]any)[0]) {
+			foundFactor++
+		}
+	}
 
-	error = os.WriteFile("/home/"+*systemUsername+"/.kube/config", *marshalledYamlValue, 0644)
+	fmt.Printf("Fetched foundFactor ::: %v \n", foundFactor)
+	fmt.Printf("Fetched length of config ::: %v \n", len(existedConfig["users"].([]any)))
+
+	if foundFactor == 0 {
+		existedConfig["clusters"] = append(existedConfig["clusters"].([]any), downloadedConfig["clusters"].([]any)[0])
+		existedConfig["users"] = append(existedConfig["users"].([]any), downloadedConfig["users"].([]any)[0])
+		existedConfig["contexts"] = append(existedConfig["contexts"].([]any), downloadedConfig["contexts"].([]any)[0])
+
+		marshalledYamlValue := marshalYaml(existedConfig)
+
+		error = os.WriteFile("/home/"+*systemUsername+"/.kube/config", *marshalledYamlValue, 0644)
+		checkError(&error)
+	}
+}
+
+func checkClusterExistance(existedClusterInfo *any, downloadedClusterInfo *any) bool {
+	existedClusterInfoBytes, error := json.Marshal(*existedClusterInfo)
 	checkError(&error)
 
+	downloadedClusterInfoBytes, error := json.Marshal(*downloadedClusterInfo)
+	checkError(&error)
+
+	return bytes.Equal(existedClusterInfoBytes, downloadedClusterInfoBytes)
 }
 
 func backupFile(systemUsername *string) {
