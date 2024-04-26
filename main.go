@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v2"
@@ -68,12 +69,15 @@ func main() {
 	if error != nil {
 		panic(error.Error())
 	}
-	_, error = exec.Command("kubectl", "apply", "-f", "/home"+systemUsername+"/"+*commandInstance.serviceName+".yaml", "-n", *commandInstance.dstNamespace).Output()
+	serviceFilePath := filepath.Join("/home", systemUsername, *commandInstance.serviceName+".yaml")
+
+	commandOutput, error = exec.Command("kubectl", "apply", "-f", serviceFilePath, "-n", *commandInstance.dstNamespace).Output()
 
 	if error != nil {
 		panic(error.Error())
 	}
 
+	fmt.Println(string(commandOutput))
 	fmt.Printf("Your service file had been applied!")
 }
 
