@@ -39,11 +39,13 @@ func main() {
 
 	reterivedServiceYaml, error := exec.Command("kubectl", "-n", *commandInstance.namespace, "get", "svc", *commandInstance.serviceName, "-o", "yaml").Output()
 
+	if error != nil {
+		panic("Fetched error at reteriving service file ::: " + error.Error())
+	}
+
 	yamlValue := make(map[string]any)
 
 	yaml.Unmarshal(reterivedServiceYaml, yamlValue)
-
-	// yamlValue["spec"].(map[any]any)["ipFamilies"] = nil
 
 	delete(yamlValue["metadata"].(map[any]any), "creationTimestamp")
 	delete(yamlValue["metadata"].(map[any]any), "resourceVersion")
@@ -55,26 +57,29 @@ func main() {
 	delete(yamlValue["spec"].(map[any]any), "ipFamilies")
 	delete(yamlValue, "status")
 
+	yamlByteValue, error := yaml.Marshal(yamlValue)
+
 	if error != nil {
-		panic(error.Error())
+		panic("Fetched error at marshalling yaml file ::: " + error.Error())
 	}
-	yamlByteValue, _ := yaml.Marshal(yamlValue)
+
 	_, error = createdServiceFile.Write(yamlByteValue)
 
 	if error != nil {
-		panic(error.Error())
+		panic("Fetched error at writing service file to local ::: " + error.Error())
 	}
+
 	_, error = exec.Command("kubectl", "config", "use-context", *commandInstance.dstContext).Output()
 
 	if error != nil {
-		panic(error.Error())
+		panic("Fetched error at kubectl switch context ::: " + error.Error())
 	}
 	serviceFilePath := filepath.Join("/home", systemUsername, *commandInstance.serviceName+".yaml")
 
 	commandOutput, error = exec.Command("kubectl", "apply", "-f", serviceFilePath, "-n", *commandInstance.dstNamespace).Output()
 
 	if error != nil {
-		panic(error.Error())
+		panic("Fetched error at kubectl applly service file ::: " + error.Error())
 	}
 
 	fmt.Println(string(commandOutput))
@@ -102,7 +107,7 @@ func createServiceFile(path string) *os.File {
 	createdServiceFile, error := os.Create(path)
 
 	if error != nil {
-		panic(error.Error())
+		panic("Fetched error at creating service file ::: " + error.Error())
 	}
 
 	return createdServiceFile
