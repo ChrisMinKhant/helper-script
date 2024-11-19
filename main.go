@@ -1,120 +1,77 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
+	"flag"
 	"fmt"
-	"io/fs"
-	"os"
-
-	"gopkg.in/yaml.v3"
+	"os/exec"
+	"strings"
 )
 
+var banner = `
+#  $$$$$$\                            $$\                                                                                 
+#  \_$$  _|                           $$ |                                                                                
+#    $$ |         $$$$$$\   $$$$$$\ $$$$$$\          $$$$$$\   $$$$$$\                                                    
+#    $$ |        $$  __$$\ $$  __$$\\_$$  _|        $$  __$$\ $$  __$$\                                                   
+#    $$ |        $$ /  $$ |$$ /  $$ | $$ |          $$ /  $$ |$$ /  $$ |                                                  
+#    $$ |        $$ |  $$ |$$ |  $$ | $$ |$$\       $$ |  $$ |$$ |  $$ |                                                  
+#  $$$$$$\       \$$$$$$$ |\$$$$$$  | \$$$$  |      \$$$$$$$ |\$$$$$$  |$$\                                               
+#  \______|       \____$$ | \______/   \____/        \____$$ | \______/ \__|                                              
+#                $$\   $$ |                         $$\   $$ |                                                            
+#                \$$$$$$  |                         \$$$$$$  |                                                            
+#                 \______/                           \______/                                                             
+#  $$\     $$\                                              $$\                     $$\       $$\   $$\                   
+#  \$$\   $$  |                                             $$ |                    $$ |      \__|  $$ |                  
+#   \$$\ $$  /$$$$$$\  $$\   $$\        $$$$$$\   $$$$$$\ $$$$$$\          $$$$$$$\ $$$$$$$\  $$\ $$$$$$\    $$$$$$$\     
+#    \$$$$  /$$  __$$\ $$ |  $$ |      $$  __$$\ $$  __$$\\_$$  _|        $$  _____|$$  __$$\ $$ |\_$$  _|  $$  _____|    
+#     \$$  / $$ /  $$ |$$ |  $$ |      $$ /  $$ |$$ /  $$ | $$ |          \$$$$$$\  $$ |  $$ |$$ |  $$ |    \$$$$$$\      
+#      $$ |  $$ |  $$ |$$ |  $$ |      $$ |  $$ |$$ |  $$ | $$ |$$\        \____$$\ $$ |  $$ |$$ |  $$ |$$\  \____$$\     
+#      $$ |  \$$$$$$  |\$$$$$$  |      \$$$$$$$ |\$$$$$$  | \$$$$  |      $$$$$$$  |$$ |  $$ |$$ |  \$$$$  |$$$$$$$  |$$\ 
+#      \__|   \______/  \______/        \____$$ | \______/   \____/       \_______/ \__|  \__|\__|   \____/ \_______/ \__|
+#                                      $$\   $$ |                                                                         
+#                                      \$$$$$$  |                                                                         
+#                                       \______/                                                                          
+#  $$\   $$\ $$$$$$$$\       $$\   $$\ $$$$$$$$\       $$\   $$\ $$$$$$$$\                                                
+#  $$ |  $$ |$$  _____|      $$ |  $$ |$$  _____|      $$ |  $$ |$$  _____|                                               
+#  $$ |  $$ |$$ |            $$ |  $$ |$$ |            $$ |  $$ |$$ |                                                     
+#  $$$$$$$$ |$$$$$\          $$$$$$$$ |$$$$$\          $$$$$$$$ |$$$$$\                                                   
+#  $$  __$$ |$$  __|         $$  __$$ |$$  __|         $$  __$$ |$$  __|                                                  
+#  $$ |  $$ |$$ |            $$ |  $$ |$$ |            $$ |  $$ |$$ |                                                     
+#  $$ |  $$ |$$$$$$$$\       $$ |  $$ |$$$$$$$$\       $$ |  $$ |$$$$$$$$\ $$\                                            
+#  \__|  \__|\________|      \__|  \__|\________|      \__|  \__|\________|\__|                                           
+#                                                                                                                         
+#                                                                                                                         
+#`
+
+type flags struct {
+	clusterConfigsPath *string
+}
+
 func main() {
-	var path string
-	var systemUserName string
 
-	asciiArt := `	·············································································
-	:  ____ _____  ____  ____    _       ____ _____ _____ ____ _   _    _ ____  :
-	: / _  |____ |/ _  |/ _  |  / \     / _  |____ |_   _|___ | | | |  | |___ \ :
-	:| (_| | |_  | | | | | | | / _ \   | (_| | |_  | | | / ___| | | |  | |   | |:
-	: > _  |___| | |_| | |_| |/ ___ \   > _  |___| | | || (___| |_| ___| |___| |:
-	:/_/ |_|_____|\____|\____/_/   \_\ /_/ |_|_____| |_| \____|\___|_____|____/ :
-	·············································································`
-
-	fmt.Println(asciiArt)
-
-	fmt.Print("Please enter system username ::: ")
-	fmt.Scan(&systemUserName)
-	fmt.Print("Please enter downloaded rancher yaml file path ::: ")
-	fmt.Scan(&path)
-
-	// Take a backup of the existed config file
-	backupFile(&systemUserName)
-
-	fetchedFiles := fetchFiles(&path)
-
-	// Add cluster config to the existed config file
-	for _, singleFile := range *fetchedFiles {
-		singleFileAbsolutePath := path + "/" + singleFile.Name()
-		addCluster(&singleFileAbsolutePath, &systemUserName)
+	inputFlags := &flags{
+		clusterConfigsPath: flag.String("p", "", "path"),
 	}
 
-	fmt.Println("I got go. You got shits to be done, HE HE HE.")
-}
+	flag.Parse()
 
-func addCluster(path *string, systemUsername *string) {
-	downloadedConfig := make(map[string]any)
-	existedConfig := make(map[string]any)
+	fetchedSystemUsername := fetchSystemUsername()
+	fetchedClusterConfigFiles := fetchFiles(inputFlags.clusterConfigsPath)
 
-	openedDownloadedConfig, error := os.ReadFile(*path)
-	checkError(&error)
-
-	openedExistedConfig, error := os.ReadFile("/home/" + *systemUsername + "/.kube/config")
-	checkError(&error)
-
-	yaml.Unmarshal(openedDownloadedConfig, downloadedConfig)
-	yaml.Unmarshal(openedExistedConfig, existedConfig)
-
-	foundFactor := 0
-
-	for _, cluster := range existedConfig["clusters"].([]any) {
-		if checkClusterExistance(&cluster, &downloadedConfig["clusters"].([]any)[0]) {
-			foundFactor++
-		}
+	for _, clusterConfigFile := range *fetchedClusterConfigFiles {
+		clusterConfigFilePath := *inputFlags.clusterConfigsPath + "/" + clusterConfigFile.Name()
+		addCluster(&clusterConfigFilePath, &fetchedSystemUsername)
 	}
 
-	if foundFactor == 0 {
-		existedConfig["clusters"] = append(existedConfig["clusters"].([]any), downloadedConfig["clusters"].([]any)[0])
-		existedConfig["users"] = append(existedConfig["users"].([]any), downloadedConfig["users"].([]any)[0])
-		existedConfig["contexts"] = append(existedConfig["contexts"].([]any), downloadedConfig["contexts"].([]any)[0])
-
-		marshalledYamlValue := marshalYaml(existedConfig)
-
-		error = os.WriteFile("/home/"+*systemUsername+"/.kube/config", *marshalledYamlValue, 0644)
-		checkError(&error)
-	}
+	displayBanner()
 }
 
-func checkClusterExistance(existedClusterInfo *any, downloadedClusterInfo *any) bool {
-	existedClusterInfoBytes, error := json.Marshal(*existedClusterInfo)
+func fetchSystemUsername() string {
+	commandOutput, error := exec.Command("whoami").Output()
 	checkError(&error)
-
-	downloadedClusterInfoBytes, error := json.Marshal(*downloadedClusterInfo)
-	checkError(&error)
-
-	return bytes.Equal(existedClusterInfoBytes, downloadedClusterInfoBytes)
+	return strings.TrimSuffix(string(commandOutput), "\n")
 }
 
-func backupFile(systemUsername *string) {
-	backupconfig := make(map[string]any)
-
-	openedExistedConfig, error := os.ReadFile("/home/" + *systemUsername + "/.kube/config")
-	checkError(&error)
-
-	yaml.Unmarshal(openedExistedConfig, backupconfig)
-
-	marshalledBackupYamlValue := marshalYaml(backupconfig)
-
-	error = os.WriteFile("/home/"+*systemUsername+"/.kube/backupconfig", *marshalledBackupYamlValue, 0644)
-	checkError(&error)
-}
-
-func fetchFiles(path *string) *[]fs.DirEntry {
-	foundFiles, error := os.ReadDir(*path)
-	checkError(&error)
-
-	return &foundFiles
-}
-
-func checkError(foundError *error) {
-	if *foundError != nil {
-		panic(*foundError)
-	}
-}
-
-func marshalYaml(rawYaml any) *[]byte {
-	marshalledYaml, error := yaml.Marshal(rawYaml)
-	checkError(&error)
-	return &marshalledYaml
+func displayBanner() {
+	fmt.Println(banner)
+	fmt.Println("# CLUSTERS ARE ADDED.\n")
 }
